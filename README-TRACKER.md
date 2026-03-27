@@ -82,3 +82,23 @@ cd matrix-24-7-tracker
 ## Лицензия
 
 AGPL-3.0 (наследуется от element-android)
+
+---
+
+## Статус реализации (feature/geo-tracker)
+
+| Файл | Описание | Статус |
+|---|---|---|
+| `GeoTrackerService.kt` | Foreground-сервис, диспетчер каналов Matrix/SMS/BLE | DONE |
+| `GeoTrackerRepository.kt` | Matrix Live Location Beacon MSC3489 | DONE |
+| `SmsLocationSender.kt` | SMS резерв без интернета (SmsManager) | DONE |
+| `BluetoothLocationBeacon.kt` | BLE Advertising резерв без GSM | DONE |
+| `GeoTrackerBootReceiver.kt` | Автозапуск после ребута/обновления | DONE |
+
+## Следующие шаги (TODO)
+
+- [ ] Прикрутить к `HomeActivity.onCreate()` -> запуск сервиса
+- [ ] Добавить пермиссии в `AndroidManifest.xml` (ACCESS_FINE_LOCATION, SEND_SMS, BLUETOOTH_ADVERTISE, RECEIVE_BOOT_COMPLETED, FOREGROUND_SERVICE_LOCATION)
+- [ ] Создать экран настроек: roomId + номер телефона для SMS
+- [ ] Написать unit-тесты для SmsLocationSender и GeoTrackerService
+- [ ] Собрать debug APK: `./gradlew :vector:assembleGplayDebug`
