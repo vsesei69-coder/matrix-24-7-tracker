@@ -1,0 +1,117 @@
+# GitLab CI/CD Pipeline для matrix-24-7-tracker
+# Сборка, линтинг, unit-тесты Android приложения
+
+stages:
+  - lint
+  - test
+  - build
+
+variables:
+  ANDROID_COMPILE_SDK: "34"
+  ANDROID_BUILD_TOOLS: "34.0.0"
+  GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.caching=true"
+
+before_script:
+  - export GRADLE_USER_HOME=$(pwd)/.gradle
+  - chmod +x ./gradlew
+
+cache:
+  key: "${CI_COMMIT_REF_SLUG}"
+  paths:
+    - .gradle/wrapper
+    - .gradle/caches
+
+# -------------------------------------------------------------------------
+# Stage 1: Lint — проверка кода
+# -------------------------------------------------------------------------
+lint:kotlin:
+  stage: lint
+  image: openjdk:17-jdk-slim
+  before_script:
+    - apt-get update && apt-get install -y wget unzip
+    - wget -q https://services.gradle.org/distributions/gradle-8.5-bin.zip
+    - unzip -q gradle-8.5-bin.zip
+    - export PATH=$PATH:$(pwd)/gradle-8.5/bin
+    - chmod +x ./gradlew
+  script:
+    - ./gradlew ktlintCheck --stacktrace
+  allow_failure: true
+  artifacts:
+    when: on_failure
+    paths:
+      - build/reports/ktlint/
+    expire_in: 7 days
+
+lint:android:
+  stage: lint
+  image: gradle:8.5-jdk17
+  script:
+    - ./gradlew lint --stacktrace
+  artifacts:
+    when: always
+    paths:
+      - vector/build/reports/lint-results.html
+    expire_in: 7 days
+
+# -------------------------------------------------------------------------
+# Stage 2: Test — unit-тесты
+# -------------------------------------------------------------------------
+test:unit:
+  stage: test
+  image: gradle:8.5-jdk17
+  script:
+    - ./gradlew :vector:testGplayDebugUnitTest --stacktrace
+  artifacts:
+    when: always
+    reports:
+      junit: vector/build/test-results/testGplayDebugUnitTest/TEST-*.xml
+    paths:
+      - vector/build/reports/tests/testGplayDebugUnitTest/
+    expire_in: 7 days
+  coverage: '/Total coverage: (\d+\.\d+)%/'
+
+# -------------------------------------------------------------------------
+# Stage 3: Build — сборка APK
+# -------------------------------------------------------------------------
+build:debug:
+  stage: build
+  image: gradle:8.5-jdk17
+  script:
+    - ./gradlew :vector:assembleGplayDebug --stacktrace
+  artifacts:
+    name: "matrix-24-7-tracker-${CI_COMMIT_SHORT_SHA}"
+    paths:
+      - vector/build/outputs/apk/gplay/debug/*.apk
+    expire_in: 30 days
+  only:
+    - feature/geo-tracker
+    - develop
+    - main
+
+build:release:
+  stage: build
+  image: gradle:8.5-jdk17
+  script:
+    - ./gradlew :vector:assembleGplayRelease --stacktrace
+  artifacts:
+    name: "matrix-24-7-tracker-release-${CI_COMMIT_SHORT_SHA}"
+    paths:
+      - vector/build/outputs/apk/gplay/release/*.apk
+    expire_in: 90 days
+  only:
+    - main
+    - tags
+  when: manual
+
+# -------------------------------------------------------------------------
+# Дополнительно: зеркало для GitHub (если нужно)
+# -------------------------------------------------------------------------
+mirror:github:
+  stage: .post
+  image: alpine/git:latest
+  script:
+    - git remote add github https://github.com/vsesei69-coder/matrix-24-7-tracker.git || true
+    - git push github feature/geo-tracker --force
+  only:
+    - feature/geo-tracker
+  when: manual
